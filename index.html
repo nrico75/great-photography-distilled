@@ -1,0 +1,2985 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Addictive Learning – Main + Panels</title>
+  <style>
+    :root{
+      --glassTint: 0.34;
+      --glassBlur: 26px;
+      --glassSat: 165%;
+      --ease: cubic-bezier(.2,.9,.2,1);
+      --cardEase: cubic-bezier(.18,.88,.32,1.15);
+      --safeTop: env(safe-area-inset-top);
+      --safeBottom: env(safe-area-inset-bottom);
+      /* Lesson card design tokens */
+      --lessonCardW: min(460px, calc(100vw - 48px));
+      --lessonCardH: clamp(480px, 85svh, 700px);
+      --lessonPadX: 20px;
+      --lessonPadTop: calc(16px + env(safe-area-inset-top));
+      --lessonPadBot: calc(16px + env(safe-area-inset-bottom));
+      --lessonBodyLines: 4;
+      --accent-orange: 255, 140, 50;
+      --accent-yellow: 255, 200, 50;
+      --accent-green: 110, 255, 235;
+      --accent-blue: 80, 180, 255;
+      --accent-purple: 180, 100, 255;
+    }
+
+    *{ box-sizing:border-box; margin:0; padding:0; }
+
+    html, body { height: 100%; touch-action: auto; }
+
+    body{
+      margin: 0;
+      min-height: 100vh;
+      color: rgba(235, 245, 255, 0.92);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+
+      background-image: url("assets/bakgrund2.webp");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body::before{
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.55));
+      z-index: 0;
+    }
+
+    .app{
+      position: relative;
+      height: 100svh;
+      height: 100dvh;
+      height: calc(var(--vh, 1vh) * 100);
+      width: 100%;
+      padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+
+    @media (max-width: 520px){
+      .app{
+        padding-left: 16px;
+        padding-right: 16px;
+        justify-content: center;
+      }
+      .mainCardContent{ padding: 16px; }
+      .title{ font-size: 28px; }
+    }
+
+    /* MAIN CARD (always same format: 320×320 media + text) */
+    .mainCard{
+      position: relative;
+      width: min(420px, calc(100vw - 40px));
+      border-radius: 28px;
+      overflow: hidden;
+
+      background:
+        radial-gradient(560px 440px at 70% 82%,
+          rgba(110,255,230, calc(var(--glassTint) * 0.85)),
+          transparent 62%
+        ),
+        linear-gradient(180deg,
+          rgba(95,235,225, var(--glassTint)) 0%,
+          rgba(40,150,150, calc(var(--glassTint) + 0.10)) 45%,
+          rgba(18,72,66, calc(var(--glassTint) + 0.16)) 100%
+        );
+
+      backdrop-filter: blur(var(--glassBlur)) saturate(var(--glassSat)) brightness(1.06);
+      -webkit-backdrop-filter: blur(var(--glassBlur)) saturate(var(--glassSat)) brightness(1.06);
+
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.12) inset,
+        0 26px 70px rgba(0,0,0,0.42),
+        0 0 95px rgba(120,255,235,0.18);
+
+      /* Transform-based animation for smooth slide */
+      transition: transform 420ms var(--cardEase), opacity 320ms ease;
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    /* CARD STAGE: two cards layered, animate in/out */
+    /* Fit the main card inside viewport on small screens (mobile-first) */
+    .cardStage{
+      position: relative;
+      width: min(420px, calc(100vw - 40px));
+      --fit: 1;
+      transform: scale(var(--fit));
+      transform-origin: center;
+    }
+
+    /* default: current participates in layout */
+    .cardLayer{
+    }
+
+    .cardLayer.isCurrent{
+      position: relative; /* THIS is the fix */
+      z-index: 2;
+    }
+
+    .cardLayer.isIncoming{
+      position: absolute; /* only incoming overlays */
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      opacity: 0;
+    }
+
+    /* Motion presets */
+    .cardLayer.fromBelow{ transform: translateY(26px) scale(0.985); }
+    .cardLayer.fromAbove{ transform: translateY(-26px) scale(0.985); }
+
+    .cardLayer.toAbove{ transform: translateY(-26px) scale(0.985); opacity: 0; }
+    .cardLayer.toBelow{ transform: translateY(26px) scale(0.985); opacity: 0; }
+
+    .cardLayer.anim{
+      transition: transform 420ms var(--cardEase), opacity 320ms ease;
+    }
+
+    .mainCard::before{
+      content:"";
+      position:absolute; inset:0;
+      border-radius: 28px;
+      pointer-events:none;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.16) inset,
+        0 0 0 2px rgba(120,255,235,0.12) inset;
+      opacity: 0.9;
+    }
+
+    .mainCard::after{
+      content:"";
+      position:absolute; inset:-35% -25% auto -25%;
+      height: 75%;
+      background: radial-gradient(closest-side, rgba(255,255,255,0.18), transparent 70%);
+      transform: rotate(-12deg);
+      pointer-events:none;
+      opacity: 0.35;
+    }
+    .cardStage.accent-orange .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-orange),0.28) inset; }
+    .cardStage.accent-orange .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-orange),0.25); }
+    .cardStage.accent-yellow .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-yellow),0.28) inset; }
+    .cardStage.accent-yellow .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-yellow),0.25); }
+    .cardStage.accent-green .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-green),0.28) inset; }
+    .cardStage.accent-green .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-green),0.25); }
+    .cardStage.accent-blue .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-blue),0.28) inset; }
+    .cardStage.accent-blue .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-blue),0.25); }
+    .cardStage.accent-purple .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-purple),0.28) inset; }
+    .cardStage.accent-purple .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-purple),0.25); }
+
+    /* Lektionskort-stack: ett kort per viewport (100vw × 100dvh), scrollbar dold */
+    .courseCardStack{
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      overflow-y: scroll;
+      overflow-x: hidden;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding: 0;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .courseCardStack::-webkit-scrollbar{
+      display: none;
+    }
+    .courseCardStack .scrollCardItem{
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      width: 100vw;
+      height: 100dvh;
+      min-height: 100dvh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 16px 20px;
+      box-sizing: border-box;
+    }
+    /* Kortet ska alltid rymmas inom scroll-sidan; innehåll får inte trycka ner knappar */
+    .courseCardStack .mainCard{
+      width: 100%;
+      max-width: 380px;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      flex-shrink: 0;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-top: 1px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .courseCardStack .mainCardContent{
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: clamp(12px, 4vw, 24px);
+      gap: clamp(8px, 2vw, 16px);
+      box-sizing: border-box;
+    }
+    .courseCardStack .mainMedia{
+      width: 100%;
+      max-width: 96%;
+      flex: 0 0 auto;
+      height: clamp(200px, 38vh, 360px);
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+    .courseCardStack .mainMedia .mainMediaImg{
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .courseCardStack .mainMedia .mainMediaPlaceholder{
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.06);
+    }
+    .courseCardStack .mainText{
+      flex: 0 0 auto;
+      padding-bottom: 84px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 100%;
+    }
+    .courseCardStack .mainText .eyebrow{ font-size: clamp(11px, 2.5vw, 13px); line-height: 1.2; }
+    .courseCardStack .mainText .title{ font-size: clamp(18px, 5vw, 24px); font-weight: 700; line-height: 1.2; }
+    .courseCardStack .mainText .mainCardSubtitle{ font-size: clamp(13px, 3.2vw, 16px); font-weight: 500; line-height: 1.3; color: rgba(220,245,235,0.78); margin-top: 2px; }
+    .courseCardStack .mainText .body{
+      font-size: clamp(13px, 3vw, 15px); line-height: 1.5; color: rgba(220,245,235,0.85);
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+    }
+    .courseCardStack .mainText .hint{ display: block; margin-top: 6px; font-size: clamp(12px, 2.8vw, 14px); color: rgba(220,245,235,0.78); font-style: italic; min-height: 0; }
+    .courseCardStack .mainText .hint:empty{ display: none; }
+    .courseCardStack.accent-orange .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-orange),0.28) inset; }
+    .courseCardStack.accent-orange .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-orange),0.25); }
+    .courseCardStack.accent-yellow .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-yellow),0.28) inset; }
+    .courseCardStack.accent-yellow .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-yellow),0.25); }
+    .courseCardStack.accent-green .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-green),0.28) inset; }
+    .courseCardStack.accent-green .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-green),0.25); }
+    .courseCardStack.accent-blue .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-blue),0.28) inset; }
+    .courseCardStack.accent-blue .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-blue),0.25); }
+    .courseCardStack.accent-purple .mainCard::before{ box-shadow: 0 0 0 1px rgba(255,255,255,0.16) inset, 0 0 0 2px rgba(var(--accent-purple),0.28) inset; }
+    .courseCardStack.accent-purple .mainCard{ box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 95px rgba(var(--accent-purple),0.25); }
+
+    /* === LESSON CARDS: always fit viewport, no text scroll on card === */
+    html.mode-cards .courseCardStack .scrollCardItem{
+      height: 100svh;
+      width: 100vw;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: calc(12px + env(safe-area-inset-top)) 20px calc(12px + env(safe-area-inset-bottom)) 20px;
+      box-sizing: border-box;
+    }
+    html.mode-cards .courseCardStack .mainCard{
+      width: min(520px, 100%);
+      max-height: calc(100svh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      margin: 0 auto;
+    }
+    html.mode-cards .courseCardStack .mainMedia{
+      flex: 0 0 auto;
+      height: clamp(150px, 28svh, 320px);
+    }
+    html.mode-cards .courseCardStack .mainText{
+      flex: 0 0 auto;
+      padding: 16px 18px 8px;
+    }
+    html.mode-cards .courseCardStack .mainText .body,
+    html.mode-cards .courseCardStack .mainText p{
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 7;
+      overflow: hidden;
+    }
+    html.mode-cards .courseCardStack .lessonActions{
+      position: static !important;
+      margin-top: auto;
+      padding: 12px 18px 16px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    /* ===== Panels: allow scrolling (Deep Dive / Exercise) ===== */
+    .panelBody, .panelContent{
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* LOCK: image/media baseline — do not change. Centering is via scrollCardItem/courseCardStack only. */
+    html.mode-cards .mainMedia{
+      width: 100%;
+      overflow: hidden;
+      border-radius: inherit;
+    }
+    html.mode-cards .mainMediaImg{
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      object-position: center;
+      margin: 0;
+      transform: none;
+      left: auto;
+      right: auto;
+    }
+
+    /* Desktop: center lesson stack layer (nuke centering) */
+    @media (min-width: 900px){
+      html.mode-cards #lessonStackLayer{
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      html.mode-cards .courseCardStack{
+        width: min(560px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+    }
+
+    /* Desktop only: keep 100vw snap page, center the card inside it */
+    @media (min-width: 900px){
+      html.mode-cards .courseCardStack .scrollCardItem{
+        width: 100vw;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        box-sizing: border-box;
+      }
+      html.mode-cards .courseCardStack .mainCard{
+        width: min(520px, 92vw);
+        margin: 0 auto;
+      }
+    }
+
+    .mainCardContent{
+      position: relative;
+      z-index: 10;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* 320×320 media slot (always present, may be empty placeholder) */
+    .mainMedia{
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 22px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.18) inset,
+        0 1px 0 rgba(255,255,255,0.22),
+        0 10px 30px rgba(0,0,0,0.12);
+    }
+
+    .mainMedia::after{
+      content:"";
+      position:absolute;
+      left: 10%;
+      right: 10%;
+      bottom: -10px;
+      height: 18px;
+      background: radial-gradient(closest-side, rgba(255,255,255,0.22), transparent 70%);
+      filter: blur(6px);
+      opacity: 0.55;
+      pointer-events:none;
+    }
+
+    .mainMediaImg{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(0.95) contrast(1.06);
+    }
+
+    .mainMediaShade{
+      position:absolute;
+      inset:0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.12));
+      pointer-events:none;
+    }
+
+    .mainMediaPlaceholder{
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: rgba(255,255,255,0.35);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .mainText{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .eyebrow{
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(210,255,235,0.70);
+    }
+
+    .title{
+      font-size: 28px;
+      line-height: 1.05;
+      font-weight: 600;
+      color: rgba(245,255,250,0.96);
+    }
+
+    .body{
+      font-size: 15px;
+      line-height: 1.6;
+      color: rgba(220,245,235,0.78);
+    }
+
+    .hint{
+      margin-top: 10px;
+      font-size: 14px;
+      color: rgba(120,255,210,0.90);
+    }
+
+    /* PANELS (side surfaces) */
+    .panelWrap{
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    .panelWrap.open{
+      pointer-events: auto;
+    }
+
+    .scrim{
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: rgba(0,0,0,0.55);
+      opacity: 0;
+      transition: opacity 240ms var(--ease);
+      pointer-events: auto; /* Always receive clicks when panelWrap is pointer-events: auto */
+    }
+
+    .panelWrap.open .scrim{
+      opacity: 1;
+      pointer-events: auto !important; /* Klick vid sidan stänger panel även på desktop */
+    }
+    /* I lesson card stack-vyn: scrim fångar inte touch så att events når korten (när panel stängd) */
+    html.mode-stack .panelWrap:not(.open) .scrim{
+      pointer-events: none;
+    }
+
+    .panel{
+      position: absolute;
+      top: 0;
+      height: 100%;
+      width: min(92vw, 520px);
+      padding: calc(14px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom)) 16px;
+      transition: transform 320ms var(--ease);
+      z-index: 10;
+      pointer-events: auto; /* Panel glass surface stops propagation */
+    }
+
+    .panel.left{
+      left: 0;
+      transform: translateX(-100%);
+    }
+
+    .panel.right{
+      right: 0;
+      transform: translateX(100%);
+    }
+
+    .panelWrap.open.left .panel.left{
+      transform: translateX(0);
+    }
+
+    .panelWrap.open.right .panel.right{
+      transform: translateX(0);
+    }
+
+    .panelGlass{
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 28px;
+      overflow: hidden;
+      padding: 18px;
+
+      background:
+        radial-gradient(560px 440px at 70% 82%, rgba(110,255,230, 0.28), transparent 62%),
+        linear-gradient(180deg, rgba(95,235,225, 0.34) 0%, rgba(40,150,150, 0.44) 45%, rgba(18,72,66, 0.52) 100%);
+
+      backdrop-filter: blur(22px) saturate(155%) brightness(1.06);
+      -webkit-backdrop-filter: blur(22px) saturate(155%) brightness(1.06);
+
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.12) inset,
+        0 26px 70px rgba(0,0,0,0.42),
+        0 0 95px rgba(120,255,235,0.18);
+
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panelGlass::before{
+      content:"";
+      position:absolute; inset:0;
+      border-radius: 28px;
+      pointer-events:none;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.16) inset,
+        0 0 0 2px rgba(120,255,235,0.10) inset;
+      opacity: 0.9;
+      z-index: 1;
+    }
+
+    .panelGlass::after{
+      content:"";
+      position:absolute; inset:0;
+      border-radius: 28px;
+      pointer-events:none;
+      opacity: 0.18;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulance type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      background-size: 160px 160px;
+      z-index: 1;
+    }
+
+    .panelHeader{
+      position: relative;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .panelTitle{
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: rgba(255,255,255,0.60);
+    }
+    #deepDiveHeaderTitle{
+      text-transform: none;
+      letter-spacing: 0.06em;
+      font-size: 12px;
+      color: rgba(225,245,236,0.68);
+      font-family: "Times New Roman", Georgia, serif;
+      font-weight: 500;
+    }
+
+    .panelClose{
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.18);
+      color: rgba(255,255,255,0.70);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .panelContent{
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 8px;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+
+    /* Exercise (text or imageText) */
+    .exerciseText p{
+      margin-bottom: 16px;
+    }
+
+    .exerciseText ul{
+      list-style: none;
+      margin: 16px 0;
+    }
+
+    .exerciseText ul li{
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .exerciseText ul li::before{
+      content: "·";
+      position: absolute;
+      left: 6px;
+      color: rgba(120,255,210,0.70);
+    }
+
+    .exerciseImage{
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.10) inset, 0 8px 24px rgba(0,0,0,0.35);
+    }
+
+    .exerciseImage img{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Deep Dive variants */
+    .deepDiveText p{
+      margin-bottom: 16px;
+      font-size: 15px;
+      line-height: 1.65;
+      color: rgba(255,255,255,0.74);
+    }
+
+    .deepDiveImage{
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.10) inset, 0 8px 24px rgba(0,0,0,0.35);
+    }
+
+    .deepDiveImage img{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Longform variant (sticky header + scroll) */
+    .longformHeader{
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .panel .title{
+      font-size: 24px;
+      line-height: 1.15;
+      font-weight: 520;
+      letter-spacing: -0.012em;
+      color: rgba(255,255,255,0.96);
+      text-shadow: 0 1px 0 rgba(0,0,0,0.12);
+    }
+
+    .panel .eyebrow,
+    .panel h3{
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      color: rgba(210,255,240,0.55);
+    }
+
+    .longformScroll{
+      /* no extra height restriction; parent panelContent already scrolls */
+      overflow: visible;
+    }
+
+    .longformSection{
+      margin-bottom: 24px;
+    }
+
+    .panelContent p{
+      font-size: 15px;
+      line-height: 1.75;
+      font-weight: 420;
+      color: rgba(235,245,240,0.82);
+      max-width: 42ch;
+    }
+
+    .panelContent ul li{
+      line-height: 1.7;
+      margin-bottom: 14px;
+      color: rgba(235,245,240,0.78);
+    }
+
+    .panelH1{
+      font-size: 28px;
+      line-height: 1.12;
+      font-weight: 600;
+      letter-spacing: -0.012em;
+      color: rgba(245,255,250,0.96);
+      margin: 6px 0 14px 0;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.12);
+    }
+
+    .panelNote{
+      margin-top: 24px;
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.12);
+      font-size: 14px;
+      color: rgba(255,255,255,0.70);
+    }
+
+    /* FOOTER (desktop debug buttons) */
+    .footer{
+      position: fixed;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      pointer-events: auto;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .footer span{
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .footer button{
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.25);
+      color: rgba(255,255,255,0.70);
+      font-size: 13px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .footer button:active{
+      transform: translateY(1px);
+    }
+
+    /* Only one set of actions: inner card buttons. Hide outer footer. */
+    .footer{
+      display: none !important;
+    }
+    /* När du är i lektionsstacken (mode-cards = scroll med lektionskort) */
+    html.mode-cards #footerBar{
+      display: none !important;
+    }
+
+    .chipBtn.isDisabled{
+      opacity: 0.35;
+      filter: grayscale(1);
+      cursor: default;
+    }
+
+    /* ===== Card stage + vertical "stack" feel ===== */
+    .cardStage{
+      position: relative;
+      width: min(520px, calc(100vw - 32px)); /* slightly larger on mobile */
+      margin: 0 auto;
+    }
+
+    .mainCard{
+      position: relative;
+      width: 100%;
+      max-width: 520px; /* never shrink below stage intent */
+      padding-bottom: 84px; /* space for .lessonActions so text never sits under buttons */
+    }
+
+    .lessonActions{
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0));
+      height: 56px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      z-index: 5;
+      pointer-events: auto;
+    }
+    .lessonActions .chipBtn{
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.25);
+      color: rgba(255,255,255,0.70);
+      font-size: 13px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .lessonActions .chipBtn:active{
+      transform: translateY(1px);
+    }
+
+    /* When we animate between cards we temporarily overlay the incoming card */
+    .mainCard.isIncoming{
+      position: absolute;
+      inset: 0;
+    }
+
+    /* Slide transitions (not morph) */
+    .mainCard.slideFromDown{ transform: translateY(24px) scale(0.985); opacity: 0; }
+    .mainCard.slideFromUp{   transform: translateY(-24px) scale(0.985); opacity: 0; }
+
+    .mainCard.slideToUp{     transform: translateY(-24px) scale(0.985); opacity: 0; }
+    .mainCard.slideToDown{   transform: translateY(24px) scale(0.985); opacity: 0; }
+
+    .mainCard.animating{
+      transition: transform 420ms var(--cardEase), opacity 320ms ease;
+    }
+
+    /* ===== Panel drag feel ===== */
+    .panel{
+      will-change: transform;
+      touch-action: pan-y; /* allow vertical scroll inside panel content */
+    }
+    .panelDragActive{
+      transition: none !important; /* while dragging */
+    }
+
+    /* ===========================
+       PANEL GLASS UPGRADE v2 (MORE VIOLENT)
+       Replace your panelGlass + scrim + (optional) panel shadow.
+       Also add: <div class="glassNoise"></div> as first child inside .panelGlass
+    =========================== */
+
+    :root{
+      /* push these hard */
+      --panelBlur: 58px;        /* 40–70 */
+      --panelSat: 220%;         /* 160–260 */
+      --panelBright: 1.12;      /* 1.05–1.18 */
+
+      /* tint strength */
+      --tA: 0.22;               /* top tint */
+      --tB: 0.38;               /* mid tint */
+      --tC: 0.62;               /* bottom tint */
+
+      /* edge/rim aggression */
+      --rimWhite: 0.34;         /* inner white line */
+      --rimCyan: 0.36;          /* cyan line */
+      --outerEdge: 0.10;        /* border */
+      --glowCyan: 0.28;         /* outer glow intensity */
+    }
+
+    /* darker scrim makes glass feel brighter */
+    .scrim{
+      background: rgba(0,0,0,0.70);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* make the whole panel feel like a floating slab */
+    .panel{
+      filter:
+        drop-shadow(0 40px 120px rgba(0,0,0,0.75))
+        drop-shadow(0 0 80px rgba(110,255,235,0.10));
+    }
+
+    /* THE GLASS */
+    .panelGlass{
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 28px;
+      overflow: hidden;
+      padding: 18px;
+
+      /* multi-layer depth + “milky” top haze + cyan pocket + deep body */
+      background:
+        /* top milk haze */
+        radial-gradient(1200px 620px at 50% -10%,
+          rgba(255,255,255,0.22),
+          rgba(255,255,255,0.08) 35%,
+          transparent 70%
+        ),
+        /* side bloom */
+        radial-gradient(820px 620px at 110% 50%,
+          rgba(110,255,230,0.18),
+          transparent 65%
+        ),
+        /* cyan pocket */
+        radial-gradient(620px 480px at 72% 78%,
+          rgba(110,255,230, calc(var(--tA) * 1.25)),
+          transparent 62%
+        ),
+        /* main tint */
+        linear-gradient(180deg,
+          rgba(95,235,225, var(--tA)) 0%,
+          rgba(40,160,160, var(--tB)) 46%,
+          rgba(10,44,42,  var(--tC)) 100%
+        );
+
+      backdrop-filter: blur(var(--panelBlur)) saturate(var(--panelSat)) brightness(var(--panelBright));
+      -webkit-backdrop-filter: blur(var(--panelBlur)) saturate(var(--panelSat)) brightness(var(--panelBright));
+
+      border: 1px solid rgba(255,255,255,var(--outerEdge));
+
+      box-shadow:
+        /* strong inner depth */
+        inset 0 0 0 1px rgba(255,255,255,0.14),
+        inset 0 -40px 80px rgba(0,0,0,0.25),
+        inset 0 40px 80px rgba(255,255,255,0.06),
+
+        /* outer glow + separation */
+        0 32px 90px rgba(0,0,0,0.55),
+        0 0 140px rgba(110,255,235,var(--glowCyan));
+    }
+
+    /* brutal rim light (double line) */
+    .panelGlass::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius: 28px;
+      pointer-events:none;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,var(--rimWhite)),
+        inset 0 0 0 2px rgba(120,255,235,var(--rimCyan)),
+        inset 0 0 0 10px rgba(0,0,0,0.10); /* adds thickness */
+      opacity: 1;
+    }
+
+    /* specular streaks (two highlights) */
+    .panelGlass::after{
+      content:"";
+      position:absolute;
+      inset:-30% -25% auto -25%;
+      height: 90%;
+      pointer-events:none;
+      background:
+        radial-gradient(closest-side, rgba(255,255,255,0.28), transparent 72%),
+        radial-gradient(closest-side, rgba(120,255,235,0.16), transparent 70%);
+      transform: rotate(-12deg);
+      opacity: 0.55;
+      filter: blur(0.3px);
+    }
+
+    /* noise is not optional if you want “wet glass” */
+    .panelGlass .glassNoise{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity: 0.18;           /* 0.12–0.22 */
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      background-size: 220px 220px;
+    }
+
+    /* keep content above glass layers */
+    .panelGlass > *{
+      position: relative;
+      z-index: 2;
+    }
+
+    /* optional: make header look more frosted and less flat */
+    .panelHeader{
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+
+    /* optional: close pill pops more */
+    .panelClose{
+      background: rgba(0,0,0,0.14);
+      border: 1px solid rgba(255,255,255,0.16);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.14),
+        0 10px 30px rgba(0,0,0,0.25);
+    }
+
+    /* ================
+       GLASS MODE: HARD
+       Drop-in overrides.
+       Goal: “real glass” (more transparency + more blur + stronger rim + brighter specular)
+       ================ */
+
+    :root{
+      --glassBlur: 56px;
+      --glassSat: 220%;
+      --glassTint: 0.08;
+      --glassRim: 0.38;
+      --glassRim2: 0.16;
+      --glassGlow: 0.55;
+      --glassNoise: 0.10;
+    }
+
+    /* glassPremium: shared glass core */
+    .glassPremium{
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      background:
+        radial-gradient(1200px 900px at 20% 12%, rgba(255,255,255,0.14), transparent 55%),
+        radial-gradient(900px 700px at 78% 88%, rgba(110,255,235,0.12), transparent 62%),
+        linear-gradient(180deg,
+          rgba(95,235,225, calc(var(--glassTint) * 0.85)) 0%,
+          rgba(40,150,150, calc(var(--glassTint) * 1.05)) 45%,
+          rgba(18,72,66, calc(var(--glassTint) * 1.25)) 100%);
+      backdrop-filter: blur(var(--glassBlur)) saturate(var(--glassSat)) brightness(1.16) contrast(1.08);
+      -webkit-backdrop-filter: blur(var(--glassBlur)) saturate(var(--glassSat)) brightness(1.16) contrast(1.08);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08) inset,
+        0 26px 70px rgba(0,0,0,0.44),
+        0 0 120px rgba(120,255,235,0.14);
+    }
+
+    .glassPremium::before{
+      content:""; position:absolute; inset:0; border-radius: inherit; pointer-events:none;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,var(--glassRim)) inset,
+        0 0 0 2px rgba(120,255,235,var(--glassRim2)) inset;
+      opacity: 0.95;
+    }
+    .glassPremium::after{
+      content:""; position:absolute; inset:-40% -30% auto -30%; height: 70%; border-radius: 999px;
+      background: radial-gradient(closest-side, rgba(255,255,255,0.20), rgba(255,255,255,0.08) 35%, transparent 70%);
+      transform: rotate(-14deg); filter: blur(8px); opacity: 0.55; pointer-events:none;
+    }
+
+    /* subtle “glass grain” (optional but helps) */
+    .noiseOverlay{
+      pointer-events:none; position:absolute; inset:0; border-radius: inherit;
+      opacity: var(--glassNoise); mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+    .frostVignette{
+      pointer-events:none; position:absolute; inset:0; border-radius: inherit;
+      background:
+        radial-gradient(closest-side at 50% 30%, rgba(255,255,255,0.06), transparent 70%),
+        radial-gradient(closest-side at 50% 90%, rgba(0,0,0,0.16), transparent 65%);
+      opacity: 0.70;
+    }
+    .mainCard{ border-radius: 28px; }
+    .panelGlass{ border-radius: 28px; }
+
+    /* make scrim slightly lighter so the glass reads as glass, not “solid teal panel” */
+    .scrim{ background: rgba(0,0,0,0.38); }
+
+    /* optional: make text a touch brighter since glass is more see-through */
+    .body{ color: rgba(235,255,248,0.78); }
+    .eyebrow{ color: rgba(220,255,245,0.72); }
+    .hint{ color: rgba(140,255,220,0.92); }
+
+    /* ===== COURSE PICKER LAYER (fullscreen, above CardStack) ===== */
+    .pickerLayer{
+      position: fixed;
+      inset: 0;
+      height: 100svh;
+      height: 100dvh;
+      height: calc(var(--vh, 1vh) * 100);
+      width: 100%;
+      z-index: 10000;
+      overflow: hidden;
+      pointer-events: auto;
+      background-image: url("assets/bakgrund2.webp");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    .pickerLayer::before{
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: clamp(110px, 18vw, 190px);
+      background: linear-gradient(180deg, rgba(3, 16, 20, 0.62) 0%, rgba(3, 16, 20, 0.38) 56%, rgba(3, 16, 20, 0) 100%);
+      pointer-events: none;
+      z-index: 10020;
+    }
+
+    .pickerLayer.hidden{
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .pickerAppBrand{
+      position: absolute;
+      top: calc(2px + env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(760px, calc(100vw - 36px));
+      text-align: center;
+      z-index: 10030;
+      pointer-events: none;
+      padding: 4px 10px 0;
+    }
+    .pickerAppBrandTitle{
+      margin: 0;
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: clamp(18px, 3.2vw, 28px);
+      font-weight: 500;
+      line-height: 1.1;
+      letter-spacing: 0.014em;
+      color: rgba(232, 246, 240, 0.82);
+      text-wrap: balance;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 5px 16px rgba(0,0,0,0.38);
+    }
+    .pickerAppBrandTagline{
+      margin: 5px auto 0;
+      font-size: clamp(11px, 1.7vw, 13px);
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: rgba(206, 232, 224, 0.64);
+      text-wrap: balance;
+      max-width: 680px;
+    }
+    .pickerAppBrandByline{
+      margin: 3px auto 0;
+      font-size: clamp(10px, 1.35vw, 11px);
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      color: rgba(196, 220, 213, 0.46);
+      text-wrap: balance;
+    }
+    @media (max-width: 640px){
+      .pickerAppBrand{
+        top: calc(2px + env(safe-area-inset-top));
+        width: calc(100vw - 24px);
+      }
+      .pickerAppBrandTitle{
+        font-size: clamp(16px, 5vw, 22px);
+      }
+      .pickerAppBrandTagline{
+        margin-top: 3px;
+        font-size: clamp(10px, 2.9vw, 12px);
+        letter-spacing: 0.04em;
+      }
+      .pickerAppBrandByline{
+        margin-top: 2px;
+        font-size: clamp(9px, 2.4vw, 11px);
+        letter-spacing: 0.05em;
+      }
+    }
+
+    .pickerScroll{
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scroll-behavior: auto;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      touch-action: pan-y;
+    }
+    .pickerScroll::-webkit-scrollbar{ display: none; }
+
+    /* Parent owns perspective; card must NOT include perspective() in transform */
+    .pickerPerspective{
+      perspective: 1100px;
+      perspective-origin: 55% 35%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: calc(50vh - 160px) 20px calc(50vh - 120px) 20px;
+    }
+    .pickerBlock{ display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; }
+    .pickerSection{ text-align: center; margin-bottom: 16px; max-width: 380px; }
+    .pickerSectionEyebrow{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .pickerSectionTitle{ font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.95); }
+
+    .pickerCard{
+      flex-shrink: 0;
+      width: min(380px, calc(100vw - 48px));
+      transform-style: preserve-3d;
+      transform-origin: 55% 45%;
+      will-change: transform, filter, opacity;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+      cursor: pointer;
+      /* Luta inåt: toppen bort, botten mot tittaren – så texten syns (ref-bild) */
+      transform: rotateX(22deg) rotateY(12deg) rotateZ(-8deg) translateZ(0);
+      transition: transform 240ms var(--ease), filter 240ms var(--ease), opacity 240ms var(--ease);
+    }
+    .pickerBlock .pickerCard:first-of-type{ margin-top: 8px; }
+    .pickerBlock .pickerCard + .pickerCard{ margin-top: 24px; }
+
+    .pickerCard.otherDimmed{
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
+    .pickerCard.entering{
+      transform: rotateX(-2deg) rotateY(2deg) rotateZ(0deg) translateZ(40px) scale(1) !important;
+      filter: blur(0px) !important;
+      opacity: 1 !important;
+      transition: transform 320ms var(--cardEase), opacity 240ms var(--ease);
+    }
+
+    /* Kurskort: neutral glasbas – färg från box-shadow/border per accent */
+    .pickerCardInner{
+      position: relative;
+      width: 100%;
+      border-radius: 28px;
+      overflow: hidden;
+      box-sizing: border-box;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-top: 1px solid rgba(255,255,255,0.4);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    .pickerCardInner::after{
+      content:"";
+      position:absolute;
+      inset:-35% -25% auto -25%;
+      height: 75%;
+      border-radius: 999px;
+      background: radial-gradient(closest-side, rgba(255,255,255,0.28), rgba(255,255,255,0.06) 40%, transparent 70%);
+      transform: rotate(-12deg);
+      filter: blur(6px);
+      opacity: 0.70;
+      pointer-events:none;
+      z-index: 3;
+    }
+
+    /* Duplicerat lager under = ca 15x tjockare slab (rejält tjock glaskant) */
+    .pickerCard .glassBackLayer{
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      transform: translate(120px, 165px);
+      background: rgba(0,0,0,0.48);
+      filter: blur(24px);
+      pointer-events: none;
+      z-index: 0;
+      box-shadow:
+        0 50px 120px rgba(0,0,0,0.65),
+        0 0 80px rgba(80,255,235,0.12);
+    }
+
+    .pickerCard[data-centered="0"] .glassBackLayer{ opacity: 0.5; }
+    .pickerCard[data-centered="1"] .glassBackLayer{ opacity: 0.95; }
+
+    /* Bevel vänster inaktiverad – skapade "vinge" som stack ut till vänster */
+    .pickerCardInner::before{
+      display: none;
+    }
+
+    .pickerCardInner .glassLip{
+      position:absolute;
+      left: 18px;
+      right: 30px;
+      bottom: -180px;
+      height: 36px;
+      background: radial-gradient(closest-side, rgba(180,255,245,0.25), transparent 70%);
+      filter: blur(14px);
+      opacity: 0.7;
+      pointer-events:none;
+      z-index: 2;
+    }
+
+    /* Bottenkant: ca 15x tjockare – rejäl glaskant */
+    .pickerCardInner .glassBottomWall{
+      position:absolute;
+      left: 115px;
+      right: 18px;
+      bottom: -275px;
+      height: 275px;
+      border-radius: 0 0 28px 28px;
+      background: linear-gradient(180deg,
+        rgba(255,255,255,0.16),
+        rgba(120,255,235,0.12) 25%,
+        rgba(80,220,220,0.06) 50%,
+        rgba(0,0,0,0.38) 100%);
+      filter: blur(4px);
+      opacity: 0.9;
+      pointer-events:none;
+      z-index: 2;
+      box-shadow:
+        0 45px 90px rgba(0,0,0,0.55),
+        0 0 60px rgba(100,255,235,0.12);
+    }
+
+    .pickerCard[data-centered="0"] .glassBottomWall{ opacity: 0.35; }
+    .pickerCard[data-centered="1"] .glassBottomWall{ opacity: 0.88; }
+
+    .pickerCardInner > *{ position: relative; z-index: 3; }
+    /* Färg som glödande sken runt kortet – box-shadow + border, ingen färgad bakgrund */
+    .pickerCard.accent-orange .pickerCardInner{
+      box-shadow: 0 0 40px rgba(220, 100, 30, 0.5), 0 0 80px rgba(220, 100, 30, 0.2), inset 0 1px 0 rgba(255,200,150,0.3);
+      border: 1px solid rgba(220, 130, 60, 0.5);
+    }
+    .pickerCard.accent-yellow .pickerCardInner{
+      box-shadow: 0 0 40px rgba(255, 180, 30, 0.5), 0 0 80px rgba(255, 180, 30, 0.2), inset 0 1px 0 rgba(255,230,150,0.3);
+      border: 1px solid rgba(255, 200, 60, 0.5);
+    }
+    .pickerCard.accent-green .pickerCardInner{
+      box-shadow: 0 0 40px rgba(30, 160, 140, 0.5), 0 0 80px rgba(30, 160, 140, 0.2), inset 0 1px 0 rgba(150,255,240,0.3);
+      border: 1px solid rgba(60, 180, 160, 0.5);
+    }
+    .pickerCard.accent-blue .pickerCardInner{
+      box-shadow: 0 0 40px rgba(40, 80, 220, 0.5), 0 0 80px rgba(40, 80, 220, 0.2), inset 0 1px 0 rgba(150,180,255,0.3);
+      border: 1px solid rgba(80, 120, 220, 0.5);
+    }
+    .pickerCard.accent-purple .pickerCardInner{
+      box-shadow: 0 0 40px rgba(140, 40, 200, 0.5), 0 0 80px rgba(140, 40, 200, 0.2), inset 0 1px 0 rgba(200,150,255,0.3);
+      border: 1px solid rgba(160, 80, 220, 0.5);
+    }
+    /* I lesson stack-vyn: pickerCardInner ska inte blockera scroll */
+    html.mode-stack .pickerCardInner{ overflow: visible; }
+
+    .pickerNoise{
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0.12;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+      z-index: 1;
+    }
+
+    .pickerCardCover{
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      display: block;
+      border-radius: 15px;
+      opacity: 0.88;
+      background: rgba(0,0,0,0.1);
+    }
+
+    .pickerCardText{
+      padding: 16px 18px 20px;
+      position: relative;
+      z-index: 3;
+    }
+
+    .pickerCardEyebrow{
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(210, 255, 240, 0.55);
+      margin-bottom: 8px;
+    }
+
+    .pickerCardText .title{
+      font-size: 20px;
+      line-height: 1.15;
+      margin-bottom: 6px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .pickerCardText .subtitle{
+      font-size: 14px;
+      color: rgba(220,245,235,0.72);
+      line-height: 1.45;
+    }
+
+    .pickerCardPreview{
+      font-size: 13px;
+      line-height: 1.4;
+      color: rgba(220,245,235,0.7);
+      margin-top: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Course layer: CardStack + Back */
+    .courseLayer{
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100svh;
+      height: 100dvh;
+      height: calc(var(--vh, 1vh) * 100);
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .courseLayer.hidden{
+      visibility: hidden;
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+    }
+    .lessonListStackWrap{ flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; max-width: 360px; margin: 0 auto; padding: 16px 0; }
+    .lessonListStackWrap .courseCardStack{ flex: 1; min-height: 0; }
+
+    /* Lektionskort-stack: egen layer, direkt från picker */
+    .lessonStackLayer{ position: fixed; inset: 0; z-index: 3; display: flex; flex-direction: column; background: var(--bg); padding-top: calc(56px + env(safe-area-inset-top)); touch-action: pan-y; }
+    .lessonStackLayer.hidden{ display: none !important; visibility: hidden; pointer-events: none; }
+    .lessonStackScrollContainer{ flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 0; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+    .lessonStackScrollContainer .lessonListStackWrap{ flex: 1; min-height: 0; width: 100%; max-width: none; }
+    .lessonStackScrollContainer .courseCardStack{ flex: 1; min-height: 0; touch-action: pan-y; width: 100%; }
+
+    /* Input state: endast en view fångar input. Styr av setInputMode() via .mode-* på html */
+    html.mode-cards #gestureLayer{ pointer-events: auto; touch-action: none; }
+    html.mode-stack #gestureLayer{ pointer-events: none; touch-action: auto; }
+    html.mode-overlay #gestureLayer{ pointer-events: none; touch-action: auto; }
+
+    .gestureLayer{
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      top: calc(72px + env(safe-area-inset-top));
+      z-index: 40;
+      background: transparent;
+    }
+    /* Default: stack (native scroll) – gestureLayer får inga events */
+    .gestureLayer{ pointer-events: none; touch-action: auto; }
+    /* Desktop: låt klick gå igenom (vi behöver inte gestureLayer för mus) */
+    @media (hover: hover) and (pointer: fine){
+      .gestureLayer{ pointer-events: none !important; }
+    }
+
+    /* När inputMode === STACK: scroll-containern ska scrolla normalt */
+    html.mode-stack .courseCardStack{
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: y mandatory;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+    }
+
+    .backBtn{
+      position: fixed;
+      top: calc(16px + env(safe-area-inset-top));
+      left: calc(16px + env(safe-area-inset-left));
+      z-index: 3000;
+      pointer-events: auto;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(0,0,0,0.2);
+      color: rgba(255,255,255,0.92);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08) inset,
+        0 8px 24px rgba(0,0,0,0.35);
+    }
+
+    .backBtn:active{ transform: translateY(1px); }
+
+    /* --- Button hit-area + prevent weird full-width back pill --- */
+    .backBtn, .panelClose{
+      pointer-events: auto !important;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    .backBtn{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: auto !important;
+      max-width: max-content !important;
+      white-space: nowrap;
+    }
+    /* --- Click feedback (works both mobile/desktop) --- */
+    .btnFlash{
+      animation: btnFlash 260ms ease-out;
+    }
+    @keyframes btnFlash{
+      0%   { transform: translateY(0) scale(1);   filter: brightness(1); }
+      40%  { transform: translateY(1px) scale(.99); filter: brightness(1.12); }
+      100% { transform: translateY(0) scale(1);   filter: brightness(1); }
+    }
+    /* --- Diskreta knappar: tunna linjer + svag inre ljusblå glow vid hover/active --- */
+    .backBtn, .panelClose, .footer button{
+      border: 1px solid rgba(120,255,235,0.2);
+      outline: none;
+    }
+    .backBtn:hover, .panelClose:hover, .footer button:hover,
+    .backBtn:active, .panelClose:active, .footer button:active{
+      border-color: rgba(120,255,235,0.35);
+      box-shadow:
+        0 0 0 1px rgba(120,255,235,0.08) inset,
+        0 0 12px rgba(110,255,235,0.12);
+    }
+    @media (hover: hover) and (pointer: fine){
+      .backBtn:hover, .panelClose:hover, .footer button:hover{
+        box-shadow:
+          0 0 0 1px rgba(120,255,235,0.1) inset,
+          0 0 14px rgba(110,255,235,0.14);
+      }
+    }
+    body.debugLayers .gestureLayer{ background: rgba(255,0,0,0.06); }
+    body.debugLayers .scrim{ background: rgba(0,0,255,0.06); }
+
+    /* ===== FIX v3: snap-sida 100dvh, kort centrerat inuti med max-height ===== */
+    .lessonStackScrollContainer .lessonListStackWrap{
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      max-width: none;
+      padding: 0;
+      margin: 0;
+    }
+    .lessonStackScrollContainer .courseCardStack{
+      height: 100%;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .lessonStackScrollContainer .scrollCardItem{
+      height: 100dvh;
+      width: 100%;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(15px + env(safe-area-inset-top)) 20px calc(91px + env(safe-area-inset-bottom));
+      box-sizing: border-box;
+    }
+    .lessonStackScrollContainer .mainCard{
+      width: 100%;
+      max-width: 420px;
+      height: auto;
+      max-height: 100%;
+      padding-bottom: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .lessonStackScrollContainer .mainMedia{
+      flex: 0 0 auto;
+      width: 100%;
+      aspect-ratio: unset;
+      height: clamp(130px, 26dvh, 240px);
+    }
+    .lessonStackScrollContainer .mainText .body{
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      overflow: hidden;
+    }
+    .lessonStackScrollContainer .lessonActions{
+      position: static !important;
+      flex: 0 0 auto;
+      padding: 10px 18px 14px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .isAnimatingTransform{
+      will-change: transform;
+    }
+
+    @media (max-width: 768px){
+      :root{
+        --glassBlur: 12px;
+        --glassSat: 130%;
+      }
+      .panelGlass{
+        backdrop-filter: blur(14px) saturate(130%) brightness(1.06);
+        -webkit-backdrop-filter: blur(14px) saturate(130%) brightness(1.06);
+      }
+      .cardStage.accent-orange .mainCard,
+      .courseCardStack.accent-orange .mainCard{
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 40px rgba(var(--accent-orange),0.22);
+      }
+      .cardStage.accent-yellow .mainCard,
+      .courseCardStack.accent-yellow .mainCard{
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 40px rgba(var(--accent-yellow),0.22);
+      }
+      .cardStage.accent-green .mainCard,
+      .courseCardStack.accent-green .mainCard{
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 40px rgba(var(--accent-green),0.22);
+      }
+      .cardStage.accent-blue .mainCard,
+      .courseCardStack.accent-blue .mainCard{
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 40px rgba(var(--accent-blue),0.22);
+      }
+      .cardStage.accent-purple .mainCard,
+      .courseCardStack.accent-purple .mainCard{
+        box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 26px 70px rgba(0,0,0,0.42), 0 0 40px rgba(var(--accent-purple),0.22);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Course Picker Entry Layer (fullscreen; shown first) -->
+  <div class="pickerLayer" id="pickerLayer">
+    <div class="pickerAppBrand" aria-hidden="true">
+      <h1 class="pickerAppBrandTitle">Great Photography, Distilled</h1>
+      <p class="pickerAppBrandTagline">Study the masters. Learn the tools. Evolve faster.</p>
+      <p class="pickerAppBrandByline">By Erik Ersson</p>
+    </div>
+    <div class="pickerScroll" id="pickerScroll">
+      <div class="pickerPerspective" id="pickerPerspective">
+        <!-- Picker cards injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Course layer: CardStack (backBtn flyttad till body så den alltid är över overlays) -->
+  <div class="courseLayer hidden" id="courseLayer">
+    <div class="app" id="app">
+      <!-- Main card rendered here by JS -->
+    </div>
+    <div class="gestureLayer" id="gestureLayer" aria-hidden="true"></div>
+  </div>
+
+  <!-- ← Tillbaka: visas i lesson stack (och course) -->
+  <button type="button" class="backBtn" id="backBtn" aria-label="Back to courses" style="display:none;">← Courses</button>
+
+  <!-- Lektionskort-stack: direkt från kurspicker, scroll ett kort i taget -->
+  <div class="lessonStackLayer hidden" id="lessonStackLayer">
+    <div class="lessonStackScrollContainer" id="lessonStackScrollContainer"></div>
+  </div>
+
+  <div class="footer" id="footerBar">
+    <span>1 tick = 1 move (locked)</span>
+    <span style="opacity:0.3">·</span>
+    <button id="btnExercise">Exercise</button>
+    <button id="btnDeepDive">Deep Dive</button>
+  </div>
+
+  <!-- PANELS -->
+  <div class="panelWrap" id="panelWrap">
+    <div class="scrim" id="scrim"></div>
+
+    <div class="panel left" id="panelLeft">
+      <div class="panelGlass glassPremium">
+        <div class="noiseOverlay"></div>
+        <div class="frostVignette"></div>
+        <div class="panelHeader">
+          <div class="panelTitle" id="exerciseHeaderTitle">Exercise</div>
+          <button class="panelClose" id="closeLeft">Close</button>
+        </div>
+        <div class="panelContent" id="exerciseContent"></div>
+      </div>
+    </div>
+
+    <div class="panel right" id="panelRight">
+      <div class="panelGlass glassPremium">
+        <div class="noiseOverlay"></div>
+        <div class="frostVignette"></div>
+        <div class="panelHeader">
+          <div class="panelTitle" id="deepDiveHeaderTitle">Deep Dive</div>
+          <button class="panelClose" id="closeRight">Close</button>
+        </div>
+        <div class="panelContent" id="deepDiveContent"></div>
+      </div>
+    </div>
+  </div>
+
+<script src="data/blocks.js"></script>
+<script src="data/panels.js"></script>
+<script>
+const DEBUG_EVENTS = false;
+const DEBUG_LAYERS = false;
+const DEBUG_PREVENTED = false; // true: logga när touchmove/wheel etc preventDefault (för att hitta scroll-lås)
+
+// Viewport height fix for iOS
+function setVh(){
+  document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+}
+
+function fitMainCardToViewport(){
+  if(mode !== "course") return;
+
+  const stage = app.querySelector(".cardStage");
+  if(!stage) return;
+
+  stage.style.setProperty("--fit", "1");
+
+  const vh = window.innerHeight;
+  const topSafe = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safeTop")) || 0;
+  const bottomSafe = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safeBottom")) || 0;
+
+  const chrome = 160;
+  const avail = vh - topSafe - bottomSafe - chrome;
+
+  const rect = stage.getBoundingClientRect();
+  if(rect.height <= 0) return;
+
+  const fit = Math.min(1, avail / rect.height);
+
+  const isSmall = window.innerWidth < 520 || vh < 780;
+  stage.style.setProperty("--fit", isSmall ? String(fit) : "1");
+}
+
+setVh();
+addEventListener("resize", () => { setVh(); fitMainCardToViewport(); });
+addEventListener("orientationchange", () => { setVh(); fitMainCardToViewport(); });
+
+// =============================
+// DATA (hard-typed split)
+// =============================
+
+// MAIN CARDS (vertical stack, always same format)
+const CARDS = [
+  {
+    id: "rule-of-thirds-01",
+    eyebrow: "COMPOSITION",
+    title: "Rule of thirds.",
+    body: "The most famous rule for a reason. Place the subject on an intersection, not the center. The image instantly feels intentional.",
+    mediaSrc: "assets/composition-rules.webp",
+  },
+  {
+    id: "horizon-upper-third",
+    eyebrow: "COMPOSITION",
+    title: "Horizon on the upper third.",
+    body: "Classic landscape placement. You give the ground weight and let the sky support it. Calm. Stable. Readable. This is the default for a reason. Use it when you want the scene to feel grounded, not dramatic.",
+    mediaSrc: "assets/landscape-cover.webp",
+  },
+  {
+    id: "horizon-lower-third",
+    eyebrow: "COMPOSITION",
+    title: "Horizon on the lower third.",
+    body: "You give weight to the sky. This is how you create drama. Clouds, light, weather — that's the subject now. Only do this if there's something worth showing up there.",
+    mediaSrc: "assets/landscape-cover.webp",
+  },
+  {
+    id: "contrejour",
+    eyebrow: "LIGHT",
+    title: "Contre-jour.",
+    body: "Put the light behind the subject. Expose for highlights, let the subject fall into silhouette, then add shape with rim light. The glow becomes the story.",
+    mediaSrc: "assets/contrejour.webp",
+  },
+  {
+    id: "road",
+    eyebrow: "COMPOSITION",
+    title: "Leading lines.",
+    body: "Roads, train tracks, bridges, piers, railings. Strong lines pull the eye through the frame and create symmetry, balance and flow. When it works, the image almost explains itself.",
+    mediaSrc: "assets/leading-lines.webp",
+  },
+];
+
+const WEBP_JPG_EXCEPTIONS = new Set([
+  "Ansel_Adams_and_camera",
+  "Peter_Lindbergh_2015",
+  "Yousuf_Karsh_Canadian_photographer",
+]);
+
+function toWebpAssetPath(path){
+  if(typeof path !== "string") return path;
+  const m = path.match(/^assets\/(.+)\.(jpe?g)$/i);
+  if(!m) return path;
+  const baseName = m[1];
+  const extension = WEBP_JPG_EXCEPTIONS.has(baseName) ? "jpg" : "webp";
+  return `assets/${baseName}.${extension}`;
+}
+
+function normalizeAssetPaths(value){
+  if(Array.isArray(value)){
+    value.forEach((item, i) => {
+      value[i] = normalizeAssetPaths(item);
+    });
+    return value;
+  }
+  if(value && typeof value === "object"){
+    Object.keys(value).forEach((key) => {
+      value[key] = normalizeAssetPaths(value[key]);
+    });
+    return value;
+  }
+  return toWebpAssetPath(value);
+}
+
+document.addEventListener("error", (event) => {
+  const img = event.target;
+  if(!(img instanceof HTMLImageElement)) return;
+  const src = img.getAttribute("src") || "";
+  const m = src.match(/^assets\/(.+)\.(webp|jpg)$/i);
+  if(!m) return;
+  if(img.dataset.fallbackTried === "1") return;
+  img.dataset.fallbackTried = "1";
+  const baseName = m[1];
+  img.src = `assets/${baseName}.jpg`;
+  img.addEventListener("error", function retryJpegOnce(){
+    if(img.dataset.fallbackJpegTried === "1") return;
+    img.dataset.fallbackJpegTried = "1";
+    img.src = `assets/${baseName}.jpeg`;
+    img.removeEventListener("error", retryJpegOnce);
+  });
+}, true);
+
+normalizeAssetPaths(CARDS);
+
+// Course data loaded from data/blocks.js (window.BLOCKS, window.DUMMY_IMAGE)
+const DUMMY_IMAGE = toWebpAssetPath(window.DUMMY_IMAGE || "assets/dummybild-kort.jpg");
+const BLOCKS = normalizeAssetPaths(window.BLOCKS || []); // full data in data/blocks.js
+
+// Panel data loaded from data/panels.js
+const PANEL_BY_ID = normalizeAssetPaths(window.PANEL_BY_ID || {});
+const APP_DEEP_DIVE_LABEL = "Great Photography, Distilled · Deep Dive";
+
+function escapeHtml(s){
+  if(s == null || s === "") return "";
+  const t = String(s);
+  return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// =============================
+// STATE
+// =============================
+let currentIndex = 0;
+let isAnimating = false;
+let activePanel = null; // 'left' | 'right' | null
+
+let panelCooldownUntil = 0; // timestamp ms
+const PANEL_COOLDOWN_MS = 320;
+
+// appState: picker (entry layer) | course (CardStack). Always possible to return to picker.
+let mode = "picker"; // "picker" | "lessonStack" | "course"
+let activeCourseId = null;
+let currentBlockIndex = 0;
+let currentCardIndex = 0;
+let currentBlockAccent = null; // "orange"|"green"|"blue"|"purple" for lesson cards
+let currentCourseCards = null; // N lesson cards when in course view from lesson list (any length)
+let pickerScrollTop = 0;   // restore when returning from course
+let pickerScrollingLocked = false; // true during tap transition
+let pickerSnapTimeout = null;
+let pickerUserScrolling = false;
+const PICKER_SNAP_DEBOUNCE_MS = 140;
+
+// =============================
+// DOM
+// =============================
+const app = document.getElementById("app");
+const pickerLayer = document.getElementById("pickerLayer");
+const courseLayer = document.getElementById("courseLayer");
+const lessonStackLayer = document.getElementById("lessonStackLayer");
+const lessonStackScrollContainer = document.getElementById("lessonStackScrollContainer");
+const pickerScroll = document.getElementById("pickerScroll");
+const pickerPerspective = document.getElementById("pickerPerspective");
+const backBtn = document.getElementById("backBtn");
+if(DEBUG_LAYERS) document.body.classList.add("debugLayers");
+const panelWrap = document.getElementById("panelWrap");
+const scrim = document.getElementById("scrim");
+const exerciseContent = document.getElementById("exerciseContent");
+const deepDiveContent = document.getElementById("deepDiveContent");
+const btnExercise = document.getElementById("btnExercise");
+const btnDeepDive = document.getElementById("btnDeepDive");
+const closeLeft = document.getElementById("closeLeft");
+const closeRight = document.getElementById("closeRight");
+const exerciseHeaderTitle = document.getElementById("exerciseHeaderTitle");
+const deepDiveHeaderTitle = document.getElementById("deepDiveHeaderTitle");
+
+// =============================
+// INPUT STATE MACHINE – endast en view fångar input
+// =============================
+const InputMode = {
+  CARDS: "cards",   // JS-swipe (gestureLayer + wheel preventDefault)
+  STACK: "stack",   // native scroll (picker, lesson card stack)
+  OVERLAY: "overlay"
+};
+let inputMode = InputMode.STACK;
+
+function setInputMode(mode){
+  inputMode = mode;
+  const root = document.documentElement;
+  root.classList.remove("mode-cards", "mode-stack", "mode-overlay");
+  root.classList.add("mode-" + mode);
+}
+
+// INSTRUMENTATION (stäng med DEBUG_EVENTS = false)
+function describeEl(el){
+  if(!el || !el.classList) return "?";
+  if(el.id === "backBtn") return "backBtn";
+  if(el.classList.contains("panelClose")) return "panelClose";
+  if(el.id === "scrim") return "scrim";
+  if(el.id === "gestureLayer") return "gestureLayer";
+  if(el.classList && el.classList.contains("panelGlass")) return "panelGlass";
+  return (el.id || el.className || el.tagName || "?").toString().slice(0,40);
+}
+if(DEBUG_EVENTS){
+  ["pointerdown","pointerup","click"].forEach(ev => {
+    document.addEventListener(ev, (e) => {
+      const path = (e.composedPath && e.composedPath()) || [];
+      const pathStr = path.slice(0,5).map(describeEl).join(" > ");
+      const atPoint = e.clientX != null && e.clientY != null ? document.elementFromPoint(e.clientX, e.clientY) : null;
+      console.log(ev.toUpperCase(), "target:", describeEl(e.target), "path:", pathStr, "elementFromPoint:", describeEl(atPoint));
+    }, true);
+  });
+}
+
+if(DEBUG_PREVENTED){
+  ["touchstart","touchmove","wheel","pointerdown","pointermove"].forEach(type => {
+    window.addEventListener(type, (e) => {
+      if(e.defaultPrevented) console.log("PREVENTED:", type, e.target);
+    }, { capture: true });
+  });
+}
+
+// =============================
+// COURSE PICKER (CourseEntryCard only — not MainCard; title + subtitle + cover)
+// =============================
+function renderPicker(){
+  if(!pickerPerspective) return;
+  pickerPerspective.innerHTML = "";
+  const accentMap = { orange: "accent-orange", yellow: "accent-yellow", green: "accent-green", blue: "accent-blue", purple: "accent-purple" };
+  BLOCKS.forEach((block, blockIndex) => {
+    const blockEl = document.createElement("div");
+    blockEl.className = "pickerBlock";
+    const sectionEyebrowText = (block.accent === "orange") ? "References & Inspiration" : (block.eyebrow || "");
+    (block.cards || []).forEach((c, cardIndex) => {
+      const sectionEl = document.createElement("div");
+      sectionEl.className = "pickerSection";
+      if(sectionEyebrowText){
+        const eyebrowEl = document.createElement("div");
+        eyebrowEl.className = "pickerSectionEyebrow";
+        eyebrowEl.textContent = sectionEyebrowText;
+        sectionEl.appendChild(eyebrowEl);
+      }
+      const titleEl = document.createElement("div");
+      titleEl.className = "pickerSectionTitle";
+      titleEl.textContent = c.title;
+      sectionEl.appendChild(titleEl);
+      blockEl.appendChild(sectionEl);
+      const firstLesson = (c.lessons && c.lessons.length) ? c.lessons[0] : null;
+      const preview = firstLesson && firstLesson.body ? firstLesson.body : "";
+      const card = document.createElement("div");
+      card.className = "pickerCard " + (accentMap[block.accent] || "");
+      card.dataset.blockIndex = String(blockIndex);
+      card.dataset.cardIndex = String(cardIndex);
+      const backLayer = document.createElement("div");
+      backLayer.className = "glassBackLayer";
+      const inner = document.createElement("div");
+      inner.className = "pickerCardInner";
+      const noise = document.createElement("div");
+      noise.className = "pickerNoise";
+      inner.appendChild(noise);
+      const img = document.createElement("img");
+      img.className = "pickerCardCover";
+      img.src = c.coverImage || DUMMY_IMAGE;
+      img.alt = c.title;
+      img.loading = "lazy";
+      img.decoding = "async";
+      inner.appendChild(img);
+      const text = document.createElement("div");
+      text.className = "pickerCardText";
+      const titleHtml = `<div class="title">${escapeHtml(c.title)}</div>`;
+      const previewHtml = preview ? `<div class="pickerCardPreview">${escapeHtml(preview)}</div>` : "";
+      text.innerHTML = titleHtml + previewHtml;
+      inner.appendChild(text);
+      const lip = document.createElement("div");
+      lip.className = "glassLip";
+      inner.appendChild(lip);
+      const bottomWall = document.createElement("div");
+      bottomWall.className = "glassBottomWall";
+      inner.appendChild(bottomWall);
+      card.appendChild(backLayer);
+      card.appendChild(inner);
+      card.addEventListener("click", (e) => { e.preventDefault(); onPickerCardTap(blockIndex, cardIndex, card); });
+      blockEl.appendChild(card);
+    });
+    pickerPerspective.appendChild(blockEl);
+  });
+  if(typeof requestAnimationFrame !== "undefined"){
+    requestAnimationFrame(function(){
+      updatePickerWheel();
+      snapToNearestCard();
+      updatePickerWheel();
+    });
+  } else {
+    updatePickerWheel();
+    snapToNearestCard();
+    updatePickerWheel();
+  }
+}
+
+function showPickerView(){
+  mode = "picker";
+  setInputMode(InputMode.STACK);
+  if(backBtn) backBtn.style.display = "none";
+  document.body.style.overflow = "hidden";
+  if(pickerLayer) pickerLayer.classList.remove("hidden");
+  if(courseLayer){ courseLayer.classList.add("hidden"); courseLayer.classList.remove("courseCardStackMode"); }
+  if(lessonStackLayer) lessonStackLayer.classList.add("hidden");
+  pickerScrollingLocked = false;
+  setHash("");
+  if(pickerScroll && pickerScrollTop >= 0) pickerScroll.scrollTop = pickerScrollTop;
+  if(pickerPerspective){
+    pickerPerspective.querySelectorAll(".pickerCard").forEach(el => {
+      el.classList.remove("otherDimmed", "entering");
+    });
+  }
+  if(typeof requestAnimationFrame !== "undefined"){
+    requestAnimationFrame(updatePickerWheel);
+  } else {
+    updatePickerWheel();
+  }
+}
+
+function showCourseView(){
+  mode = "course";
+  setInputMode(InputMode.CARDS);
+  if(backBtn){ backBtn.style.display = ""; backBtn.textContent = "← Courses"; }
+  if(pickerLayer) pickerLayer.classList.add("hidden");
+  if(lessonStackLayer) lessonStackLayer.classList.add("hidden");
+  if(courseLayer) courseLayer.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  if(currentCourseCards && currentCourseCards.length > 0){
+    if(courseLayer) courseLayer.classList.add("courseCardStackMode");
+    requestAnimationFrame(() => {
+      renderCourseCardStack();
+    });
+  } else {
+    if(courseLayer) courseLayer.classList.remove("courseCardStackMode");
+    requestAnimationFrame(() => {
+      renderMainCard();
+      requestAnimationFrame(fitMainCardToViewport);
+    });
+  }
+}
+
+function setHash(s){
+  const h = s ? "#" + s : "";
+  if(location.hash !== h) location.hash = h;
+}
+
+function applyStateFromHash(){
+  const raw = (location.hash || "").replace(/^#/, "");
+  if(!raw) return false;
+  const parts = raw.split("/");
+  if(parts[0] !== "l" || parts.length < 3) return false;
+  const blockIndex = parseInt(parts[1], 10);
+  const cardIndex = parseInt(parts[2], 10);
+  const block = BLOCKS[blockIndex];
+  const card = block && block.cards[cardIndex];
+  if(!block || !card || !card.lessons) return false;
+  currentBlockIndex = blockIndex;
+  currentCardIndex = cardIndex;
+  currentBlockAccent = block.accent || null;
+  currentCourseCards = card.lessons.map((lesson, i) => ({
+    id: lesson.id || "lesson-" + blockIndex + "-" + cardIndex + "-" + i,
+    eyebrow: lesson.eyebrow || card.title,
+    title: lesson.title,
+    subtitle: lesson.subtitle || "",
+    image: lesson.image || DUMMY_IMAGE,
+    body: lesson.body || "",
+    hint: lesson.hint || ""
+  }));
+  currentIndex = 0;
+  if(backBtn){ backBtn.style.display = ""; backBtn.textContent = "← Tillbaka"; }
+  if(pickerLayer) pickerLayer.classList.add("hidden");
+  if(courseLayer) courseLayer.classList.add("hidden");
+  if(lessonStackLayer) lessonStackLayer.classList.remove("hidden");
+  mode = "lessonStack";
+  showLessonCardStackInList();
+  return true;
+}
+
+function getCardTopInPerspective(card){
+  let t = 0; let el = card;
+  while(el && el !== pickerPerspective){ t += el.offsetTop; el = el.offsetParent; }
+  return t;
+}
+
+function getPickerCardCenters(){
+  if(!pickerScroll || !pickerPerspective) return [];
+  const scrollEl = pickerScroll;
+  const viewportHeight = scrollEl.clientHeight;
+  const cards = pickerPerspective.querySelectorAll(".pickerCard");
+  const centers = [];
+  cards.forEach((card, i) => {
+    const cardTop = getCardTopInPerspective(card);
+    const cardHeight = card.offsetHeight;
+    const cardCenterScroll = cardTop + cardHeight / 2 - viewportHeight / 2;
+    centers.push({ index: i, scrollTarget: Math.max(0, cardCenterScroll), card });
+  });
+  return centers;
+}
+
+function snapToNearestCard(){
+  if(pickerScrollingLocked || pickerUserScrolling) return;
+  const centers = getPickerCardCenters();
+  if(centers.length === 0) return;
+  const scrollEl = pickerScroll;
+  const scrollTop = scrollEl.scrollTop;
+  const viewportHeight = scrollEl.clientHeight;
+  const centerY = scrollTop + viewportHeight / 2;
+  let nearest = centers[0];
+  let best = Math.abs(centers[0].scrollTarget + viewportHeight / 2 - centerY);
+  centers.forEach(c => {
+    const targetMid = c.scrollTarget + viewportHeight / 2;
+    const d = Math.abs(targetMid - centerY);
+    if(d < best){ best = d; nearest = c; }
+  });
+  const targetTop = Math.max(0, nearest.scrollTarget);
+  if(Math.abs(scrollEl.scrollTop - targetTop) > 2){
+    scrollEl.scrollTo({ top: targetTop, behavior: "smooth" });
+  }
+}
+
+function updatePickerWheel(){
+  if(!pickerScroll || !pickerPerspective || pickerScrollingLocked) return;
+  const viewportHeight = pickerScroll.clientHeight;
+  const scrollTop = pickerScroll.scrollTop;
+  const viewportCenterY = scrollTop + viewportHeight / 2;
+  const scalePx = 110;
+  const falloffPx = 220;
+  /* Vilande: luta inåt (topp bort, botten mot tittaren) så texten syns – som ref-bilden */
+  const restX = 22, restY = 12, restZ = 8;
+  pickerPerspective.querySelectorAll(".pickerCard").forEach(card => {
+    if(card.classList.contains("entering")) return;
+    const cardTop = getCardTopInPerspective(card);
+    const cardHeight = card.offsetHeight;
+    const cardCenterY = cardTop + cardHeight / 2;
+    const offset = cardCenterY - viewportCenterY;
+    const dist = Math.abs(offset);
+    const norm = offset / falloffPx;
+    card.dataset.centered = (Math.abs(norm) < 0.18) ? "1" : "0";
+    const centerFactor = Math.max(0, 1 - dist / falloffPx);
+    const opacity = 0.72 + 0.28 * centerFactor;
+    const brightness = 0.88 + 0.12 * centerFactor;
+    /* Interpolera från vilande inåt-lutning till rakt fram i centrum – samma storlek och avstånd alltid */
+    let rx = restX * (1 - centerFactor);
+    let ry = restY * (1 - centerFactor);
+    let rz = -restZ * (1 - centerFactor);
+    const slight = (offset / scalePx) * 3;
+    rx -= slight;
+    card.style.transform = "rotateX(" + rx + "deg) rotateY(" + ry + "deg) rotateZ(" + rz + "deg) translateZ(0) scale(1)";
+    card.style.opacity = String(opacity);
+    card.style.filter = "brightness(" + brightness + ")";
+  });
+}
+
+function onPickerScroll(){
+  if(pickerScrollingLocked) return;
+  pickerUserScrolling = true;
+  updatePickerWheel();
+  if(pickerSnapTimeout) clearTimeout(pickerSnapTimeout);
+  pickerSnapTimeout = setTimeout(() => {
+    snapToNearestCard();
+    updatePickerWheel();
+    pickerUserScrolling = false;
+    pickerSnapTimeout = null;
+  }, PICKER_SNAP_DEBOUNCE_MS);
+}
+
+function openLessonStackFromPicker(blockIndex, cardIndex){
+  const block = BLOCKS[blockIndex];
+  const card = block && block.cards[cardIndex];
+  if(!block || !card || !card.lessons) return;
+  currentBlockIndex = blockIndex;
+  currentCardIndex = cardIndex;
+  currentBlockAccent = block.accent || null;
+  currentCourseCards = card.lessons.map((lesson, i) => ({
+    id: lesson.id || "lesson-" + blockIndex + "-" + cardIndex + "-" + i,
+    eyebrow: lesson.eyebrow || card.title,
+    title: lesson.title,
+    subtitle: lesson.subtitle || "",
+    image: lesson.image || DUMMY_IMAGE,
+    body: lesson.body || "",
+    hint: lesson.hint || ""
+  }));
+  currentIndex = 0;
+  showLessonCardStackInList();
+}
+
+function showLessonCardStackInList(){
+  mode = "lessonStack";
+  setInputMode(InputMode.STACK);
+  if(!currentCourseCards || currentCourseCards.length === 0) return;
+  if(!lessonStackScrollContainer) return;
+  if(backBtn){ backBtn.style.display = ""; backBtn.textContent = "← Tillbaka"; }
+  if(pickerLayer) pickerLayer.classList.add("hidden");
+  if(courseLayer) courseLayer.classList.add("hidden");
+  lessonStackLayer.classList.remove("hidden");
+  lessonStackScrollContainer.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "lessonListStackWrap";
+  const stack = document.createElement("div");
+  stack.className = "courseCardStack" + (currentBlockAccent ? " accent-" + currentBlockAccent : "");
+  currentCourseCards.forEach((card) => {
+    const item = document.createElement("div");
+    item.className = "scrollCardItem";
+    item.appendChild(buildMainCardEl(card));
+    stack.appendChild(item);
+  });
+  wrap.appendChild(stack);
+  lessonStackScrollContainer.appendChild(wrap);
+  const pageHeight = () => {
+    const first = stack.querySelector(".scrollCardItem");
+    return first ? first.offsetHeight : stack.clientHeight;
+  };
+  stack.addEventListener("scroll", () => {
+    const h = pageHeight();
+    if(h <= 0) return;
+    const newIndex = Math.min(currentCourseCards.length - 1, Math.max(0, Math.round(stack.scrollTop / h)));
+    if(newIndex !== currentIndex){
+      currentIndex = newIndex;
+      updatePanelContent();
+    }
+  }, { passive: true });
+  requestAnimationFrame(() => {
+    const h = pageHeight();
+    if(h > 0) stack.scrollTop = currentIndex * h;
+    updatePanelContent();
+  });
+  setHash("l/" + currentBlockIndex + "/" + currentCardIndex + "/s");
+}
+
+function onPickerCardTap(blockIndex, cardIndex, cardEl){
+  if(pickerScrollingLocked) return;
+  pickerScrollingLocked = true;
+  pickerScroll.style.overflow = "hidden";
+  pickerScrollTop = pickerScroll.scrollTop;
+
+  const allCards = pickerPerspective.querySelectorAll(".pickerCard");
+  allCards.forEach(c => {
+    if(c === cardEl) c.classList.add("entering");
+    else c.classList.add("otherDimmed");
+  });
+
+  const done = () => {
+    cardEl.removeEventListener("transitionend", done);
+    openLessonStackFromPicker(blockIndex, cardIndex);
+    pickerScroll.style.overflow = "";
+    pickerScrollingLocked = false;
+  };
+  cardEl.addEventListener("transitionend", done, { once: true });
+  setTimeout(done, 400);
+}
+
+function onBackFromCourse(){
+  if(activePanel !== null) closePanel();
+  activeCourseId = null;
+  currentCourseCards = null;
+  currentBlockAccent = null;
+  showPickerView();
+}
+
+function onBackClick(){
+  if(mode === "lessonStack"){ showPickerView(); return; }
+  onBackFromCourse();
+}
+
+if(pickerScroll){
+  pickerScroll.addEventListener("scroll", onPickerScroll, { passive: true });
+}
+
+function flashBtn(el){
+  if(!el) return;
+  el.classList.remove("btnFlash");
+  void el.offsetWidth;
+  el.classList.add("btnFlash");
+  setTimeout(() => el.classList.remove("btnFlash"), 280);
+}
+
+function bindAction(el, fn, useCapture){
+  if(!el) return;
+  let handled = false;
+  const run = (e) => {
+    if(handled) return;
+    handled = true;
+    setTimeout(() => { handled = false; }, 300);
+    e.preventDefault();
+    e.stopPropagation();
+    flashBtn(el);
+    fn();
+  };
+  const cap = !!useCapture;
+  el.addEventListener("click", run, cap);
+  el.addEventListener("pointerup", run, cap);
+  el.addEventListener("touchend", run, { passive: false, capture: cap });
+}
+
+bindAction(closeLeft, () => closePanel(), true);
+bindAction(closeRight, () => closePanel(), true);
+bindAction(backBtn, () => onBackClick());
+
+if(scrim){
+  scrim.addEventListener("click", (e) => { e.stopPropagation(); closePanel(); });
+  scrim.addEventListener("pointerup", (e) => { e.preventDefault(); e.stopPropagation(); closePanel(); });
+  scrim.addEventListener("touchend", (e) => { e.preventDefault(); e.stopPropagation(); closePanel(); }, { passive: false });
+}
+
+console.log("bindAction wired:", { closeLeft: !!closeLeft, closeRight: !!closeRight, backBtn: !!backBtn });
+
+// =============================
+// BUILD MAIN CARD ELEMENT
+// =============================
+function buildMainCardEl(card){
+  const mainCard = document.createElement("div");
+  mainCard.className = "mainCard glassPremium";
+
+  const content = document.createElement("div");
+  content.className = "mainCardContent";
+
+  // Media (kvadratisk 1:1)
+  const media = document.createElement("div");
+  media.className = "mainMedia";
+  const mediaSrc = card.mediaSrc || card.image;
+
+  if(mediaSrc){
+    const img = document.createElement("img");
+    img.className = "mainMediaImg";
+    img.src = mediaSrc;
+    img.alt = card.title || "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    media.appendChild(img);
+
+    const shade = document.createElement("div");
+    shade.className = "mainMediaShade";
+    media.appendChild(shade);
+  } else {
+    const placeholder = document.createElement("div");
+    placeholder.className = "mainMediaPlaceholder";
+    placeholder.textContent = "No media";
+    media.appendChild(placeholder);
+  }
+
+  content.appendChild(media);
+
+  // Text
+  const textWrap = document.createElement("div");
+  textWrap.className = "mainText";
+  textWrap.innerHTML = `
+    <div class="eyebrow">${card.eyebrow}</div>
+    <div class="title">${card.title}</div>
+    ${card.subtitle ? `<div class="mainCardSubtitle">${card.subtitle}</div>` : ""}
+    <div class="body">${card.body}</div>
+  `;
+  content.appendChild(textWrap);
+
+  mainCard.appendChild(content);
+  const noise = document.createElement("div");
+  noise.className = "noiseOverlay";
+  mainCard.appendChild(noise);
+  const frost = document.createElement("div");
+  frost.className = "frostVignette";
+  mainCard.appendChild(frost);
+  const panel = (typeof PANEL_BY_ID !== "undefined" && PANEL_BY_ID[card.id]) ? PANEL_BY_ID[card.id] : {};
+  const hasExercise = !!panel.exercise;
+  const hasDeepDive = !!panel.deepDive;
+  const lessonActions = document.createElement("div");
+  lessonActions.className = "lessonActions";
+  const btnEx = document.createElement("button");
+  btnEx.type = "button";
+  btnEx.className = "chipBtn" + (hasExercise ? "" : " isDisabled");
+  btnEx.setAttribute("data-action", "exercise");
+  btnEx.setAttribute("data-lesson-id", card.id || "");
+  if(!hasExercise) btnEx.disabled = true;
+  btnEx.textContent = "Exercise";
+  const btnDd = document.createElement("button");
+  btnDd.type = "button";
+  btnDd.className = "chipBtn" + (hasDeepDive ? "" : " isDisabled");
+  btnDd.setAttribute("data-action", "deepdive");
+  btnDd.setAttribute("data-lesson-id", card.id || "");
+  if(!hasDeepDive) btnDd.disabled = true;
+  btnDd.textContent = "Deep Dive";
+  lessonActions.appendChild(btnEx);
+  lessonActions.appendChild(btnDd);
+  mainCard.appendChild(lessonActions);
+  return mainCard;
+}
+
+// =============================
+// RENDER: antingen scroll-stack (N lektionskort) eller enkort-stage
+// =============================
+function renderCourseCardStack(){
+  if(!currentCourseCards || currentCourseCards.length === 0) return;
+  app.innerHTML = "";
+  const stack = document.createElement("div");
+  stack.className = "courseCardStack" + (currentBlockAccent ? " accent-" + currentBlockAccent : "");
+  currentCourseCards.forEach((card, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "scrollCardItem";
+    wrap.appendChild(buildMainCardEl(card));
+    stack.appendChild(wrap);
+  });
+  app.appendChild(stack);
+  const pageHeight = () => stack.clientHeight;
+  stack.addEventListener("scroll", () => {
+    const h = pageHeight();
+    if(h <= 0) return;
+    const newIndex = Math.min(currentCourseCards.length - 1, Math.max(0, Math.round(stack.scrollTop / h)));
+    if(newIndex !== currentIndex){
+      currentIndex = newIndex;
+      updatePanelContent();
+    }
+  }, { passive: true });
+  function scrollToCurrentCard(){
+    const h = pageHeight();
+    if(h > 0) stack.scrollTop = currentIndex * h;
+  }
+  requestAnimationFrame(() => {
+    scrollToCurrentCard();
+    updatePanelContent();
+    requestAnimationFrame(scrollToCurrentCard);
+  });
+}
+
+function renderMainCard(){
+  const deck = currentCourseCards || CARDS;
+  if(!deck.length) return;
+  const card = deck[currentIndex];
+
+  if(!card.title || !card.title.trim()){
+    console.warn("Card missing title:", card.id);
+    app.innerHTML = "";
+    updatePanelContent();
+    return;
+  }
+
+  app.innerHTML = "";
+  if(courseLayer) courseLayer.classList.remove("courseCardStackMode");
+
+  const stage = document.createElement("div");
+  stage.className = "cardStage" + (currentBlockAccent ? " accent-" + currentBlockAccent : "");
+  stage.appendChild(buildMainCardEl(card));
+
+  app.appendChild(stage);
+  updatePanelContent();
+  requestAnimationFrame(fitMainCardToViewport);
+}
+
+// =============================
+// NAVIGATION (real slide up/down)
+// =============================
+function animateToIndex(newIndex, dir /* "next" | "prev" */){
+  const deck = currentCourseCards || CARDS;
+  if(isAnimating) return;
+  if(newIndex < 0 || newIndex >= deck.length) return;
+  if(newIndex === currentIndex) return;
+  if(activePanel !== null) return;
+
+  const stage = app.querySelector(".cardStage");
+  if(!stage){
+    currentIndex = newIndex;
+    renderMainCard();
+    return;
+  }
+
+  isAnimating = true;
+  stage.classList.add("isAnimatingTransform");
+
+  const outgoing = stage.querySelector(".mainCard");
+  const incomingCard = deck[newIndex];
+  const incoming = buildMainCardEl(incomingCard);
+  outgoing.classList.add("isAnimatingTransform");
+  incoming.classList.add("isAnimatingTransform");
+
+  incoming.classList.add("isIncoming", "animating");
+
+  // Incoming start position
+  if(dir === "next") incoming.classList.add("slideFromDown");
+  else incoming.classList.add("slideFromUp");
+
+  // Outgoing will animate out
+  outgoing.classList.add("animating");
+
+  stage.appendChild(incoming);
+
+  // Force layout so initial transforms apply
+  incoming.getBoundingClientRect();
+
+  // Animate
+  requestAnimationFrame(() => {
+    // incoming goes to neutral
+    incoming.classList.remove("slideFromDown", "slideFromUp");
+    // outgoing leaves
+    if(dir === "next") outgoing.classList.add("slideToUp");
+    else outgoing.classList.add("slideToDown");
+  });
+
+  const done = () => {
+    incoming.removeEventListener("transitionend", done);
+
+    // Commit state
+    currentIndex = newIndex;
+
+    // Clean stage: keep only incoming as normal positioned card
+    stage.innerHTML = "";
+    incoming.classList.remove(
+      "isIncoming",
+      "animating",
+      "isAnimatingTransform",
+      "slideToUp",
+      "slideToDown",
+      "slideFromDown",
+      "slideFromUp"
+    );
+    // Make it relative again
+    incoming.style.position = "relative";
+    incoming.style.inset = "auto";
+    stage.appendChild(incoming);
+
+    updatePanelContent();
+    requestAnimationFrame(fitMainCardToViewport);
+    stage.classList.remove("isAnimatingTransform");
+
+    // unlock after a tiny buffer
+    setTimeout(() => { isAnimating = false; }, 40);
+  };
+
+  incoming.addEventListener("transitionend", done, { once: true });
+}
+
+// =============================
+// RENDER PANEL CONTENT
+// =============================
+function updatePanelContent(){
+  const deck = currentCourseCards || CARDS;
+  if(!deck.length) return;
+  const card = deck[currentIndex];
+  const safeTitle = (card.title && card.title.trim()) ? card.title.trim() : null;
+
+  if(!safeTitle){
+    console.warn("Panel requested but card missing title:", card && card.id);
+    exerciseContent.innerHTML = "";
+    deepDiveContent.innerHTML = "";
+    exerciseHeaderTitle.textContent = "Exercise";
+    deepDiveHeaderTitle.textContent = APP_DEEP_DIVE_LABEL;
+    return;
+  }
+
+  exerciseHeaderTitle.textContent = `Exercise · ${safeTitle}`;
+  deepDiveHeaderTitle.textContent = APP_DEEP_DIVE_LABEL;
+
+  const panelData = PANEL_BY_ID[card.id];
+  if(!panelData){
+    exerciseContent.innerHTML = "";
+    deepDiveContent.innerHTML = "";
+    return;
+  }
+
+  // EXERCISE
+  const exercise = panelData.exercise;
+  let exerciseHTML = "";
+
+  if(exercise && exercise.sections && exercise.sections.length > 0){
+    const note = exercise.reflection || "Tap outside to close. Panel should feel like a side-surface, not a modal.";
+    const sectionsHTML = exercise.sections.map(s => `<div class="longformSection"><h3>${s.h}</h3><p>${s.p}</p></div>`).join("");
+    const imageHTML = exercise.kind === "imageText" && exercise.imageSrc ? `<div class="exerciseImage"><img loading="lazy" decoding="async" src="${exercise.imageSrc}" alt="Exercise" /></div>` : "";
+    exerciseHTML = `
+      <div class="longformHeader">
+        <div class="eyebrow">${card.eyebrow}</div>
+        <div class="panelH1">${safeTitle}</div>
+        <div style="margin-top:8px; font-size:14px; color:rgba(255,255,255,0.60)">Exercise · scroll inside panel</div>
+      </div>
+      <div class="longformScroll">
+        ${imageHTML}
+        ${sectionsHTML}
+        <div class="panelNote">${note}</div>
+      </div>
+    `;
+  } else if(exercise && exercise.bullets && exercise.bullets.length > 0){
+    const note = exercise.reflection || "Tap outside to close. Panel should feel like a side-surface, not a modal.";
+    const bulletsHTML = exercise.bullets.map(b => `<li>${b}</li>`).join("");
+    const imageHTML = exercise.kind === "imageText" && exercise.imageSrc ? `<div class="exerciseImage"><img loading="lazy" decoding="async" src="${exercise.imageSrc}" alt="Exercise" /></div>` : "";
+    exerciseHTML = `
+      <div class="longformHeader">
+        <div class="eyebrow">${card.eyebrow}</div>
+        <div class="panelH1">${exercise.title || safeTitle}</div>
+        <div style="margin-top:8px; font-size:14px; color:rgba(255,255,255,0.60)">Exercise · scroll inside panel</div>
+      </div>
+      <div class="longformScroll">
+        ${imageHTML}
+        <div class="longformSection"><ul>${bulletsHTML}</ul></div>
+        <div class="panelNote">${note}</div>
+      </div>
+    `;
+  }
+
+  exerciseContent.innerHTML = exerciseHTML;
+
+  // DEEP DIVE
+  const deepDive = panelData.deepDive;
+  let deepDiveHTML = "";
+
+  if(deepDive && deepDive.variant === "text"){
+    deepDiveHTML = `<div class="deepDiveText">
+      <div class="panelH1">${safeTitle}</div>
+      ${deepDive.paragraphs.map(p => `<p>${p}</p>`).join("")}
+      <div class="panelNote">Tip: when panel is open we disable card nav so you never change card by accident.</div>
+    </div>`;
+  } else if(deepDive && deepDive.variant === "imageText"){
+    deepDiveHTML = `<div class="deepDiveText">
+      <div class="panelH1">${safeTitle}</div>
+      <div class="deepDiveImage"><img loading="lazy" decoding="async" src="${deepDive.imageSrc}" alt="Deep Dive" /></div>
+      ${deepDive.paragraphs.map(p => `<p>${p}</p>`).join("")}
+      <div class="panelNote">Tip: when panel is open we disable card nav so you never change card by accident.</div>
+    </div>`;
+  } else if(deepDive && deepDive.variant === "longform"){
+    const sectionsHTML = deepDive.sections.map(s => `
+      <div class="longformSection">
+        <h3>${s.h}</h3>
+        <p>${s.p}</p>
+      </div>
+    `).join("");
+    const noteHTML = deepDive.note ? `<div class="panelNote">${deepDive.note}</div>` : `<div class="panelNote">Quick test: squint. If you still "feel" where the image goes, the lines are doing their job.</div>`;
+
+    deepDiveHTML = `
+      <div class="longformHeader">
+        <div class="eyebrow">${card.eyebrow}</div>
+        <div class="panelH1">${safeTitle}</div>
+        <div style="margin-top:8px; font-size:14px; color:rgba(255,255,255,0.60)">Long form · scroll inside panel</div>
+      </div>
+      <div class="longformScroll">
+        ${sectionsHTML}
+        ${noteHTML}
+      </div>
+    `;
+  }
+
+  deepDiveContent.innerHTML = deepDiveHTML;
+}
+
+function moveCard(dir){
+  if(dir === "next") animateToIndex(currentIndex + 1, "next");
+  if(dir === "prev") animateToIndex(currentIndex - 1, "prev");
+}
+
+// =============================
+// PANELS (LAW: one panel at a time; no cross-open)
+// =============================
+function openPanel(side){
+  if(Date.now() < panelCooldownUntil) return; // ignore opens during cooldown
+
+  // LAW: if a panel is open and user tries to open the other -> just close to main
+  if(activePanel !== null){
+    closePanel();
+    return;
+  }
+
+  activePanel = side;
+  panelWrap.classList.add("open");
+  panelWrap.classList.toggle("left", side === "left");
+  panelWrap.classList.toggle("right", side === "right");
+
+  document.getElementById("panelLeft").style.transform = "";
+  document.getElementById("panelRight").style.transform = "";
+
+  updatePanelContent();
+}
+
+function closePanel(){
+  // cooldown: after closing, ignore horizontal open gestures briefly
+  panelCooldownUntil = Date.now() + PANEL_COOLDOWN_MS;
+
+  activePanel = null;
+
+  // IMPORTANT: clear direction classes immediately
+  panelWrap.classList.remove("left", "right");
+  panelWrap.classList.remove("open");
+
+  // Reset transforms
+  document.getElementById("panelLeft").style.transform = "";
+  document.getElementById("panelRight").style.transform = "";
+}
+
+
+// Single set of actions: inner card buttons. Document-level delegation.
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if(!btn) return;
+  const action = btn.dataset.action;
+  const lessonId = btn.dataset.lessonId;
+  if(btn.disabled || btn.classList.contains("isDisabled")) return;
+  if(action !== "exercise" && action !== "deepdive") return;
+
+  if(activePanel !== null) closePanel();
+
+  if(currentCourseCards && lessonId){
+    const idx = currentCourseCards.findIndex(c => (c.id || "") === lessonId);
+    if(idx >= 0){
+      currentIndex = idx;
+      updatePanelContent();
+    }
+  }
+  if(action === "exercise") openPanel("left");
+  if(action === "deepdive") openPanel("right");
+});
+
+// Prevent clicks inside panels from closing
+document.getElementById("panelLeft").addEventListener("click", (e) => e.stopPropagation());
+document.getElementById("panelRight").addEventListener("click", (e) => e.stopPropagation());
+
+/* ===== Drag to close panels (pointer = mouse + touch) ===== */
+function attachPanelDrag(panelEl, side /* "left" | "right" */){
+  let dragging = false;
+  let startX = 0;
+  let lastX = 0;
+  let lastT = 0;
+
+  const sign = side === "left" ? -1 : 1; // closing direction
+
+  panelEl.addEventListener("pointerdown", (e) => {
+    if(activePanel !== side) return;
+    // Do not start drag on interactive/header controls (keeps Close clickable)
+    const target = e.target;
+    if(target && target.closest && (
+      target.closest(".panelClose") ||
+      target.closest(".panelHeader") ||
+      target.closest("button, a, input, textarea, select, label")
+    )) return;
+    dragging = true;
+    startX = e.clientX;
+    lastX = e.clientX;
+    lastT = performance.now();
+    panelEl.classList.add("panelDragActive");
+    panelEl.setPointerCapture(e.pointerId);
+  });
+
+  panelEl.addEventListener("pointermove", (e) => {
+    if(!dragging) return;
+    const dx = e.clientX - startX;
+
+    // Only allow dragging towards closing direction
+    const allowed = sign === -1 ? Math.min(0, dx) : Math.max(0, dx);
+
+    panelEl.style.transform = `translateX(${allowed}px)`;
+    lastX = e.clientX;
+    lastT = performance.now();
+  });
+
+  function endDrag(e){
+    if(!dragging) return;
+    dragging = false;
+
+    panelEl.classList.remove("panelDragActive");
+
+    const rect = panelEl.getBoundingClientRect();
+    const width = rect.width || 520;
+    const currentTx = parseFloat((panelEl.style.transform.match(/-?\d+(\.\d+)?/)||["0"])[0]) || 0;
+
+    // Close if dragged enough (~22% of width)
+    const closeThreshold = width * 0.22;
+
+    if(Math.abs(currentTx) > closeThreshold){
+      closePanel();
+    } else {
+      // snap back
+      panelEl.style.transform = "";
+    }
+  }
+
+  panelEl.addEventListener("pointerup", endDrag);
+  panelEl.addEventListener("pointercancel", endDrag);
+}
+
+attachPanelDrag(document.getElementById("panelLeft"), "left");
+attachPanelDrag(document.getElementById("panelRight"), "right");
+
+// =============================
+// GESTURE CONTROLLER (locked)
+// =============================
+function canNavigate(){
+  return mode === "course" && activePanel === null && !isAnimating;
+}
+
+// WHEEL/TRACKPAD
+let wheelAcc = 0;
+let lastWheelTime = 0;
+
+window.addEventListener("wheel", (e) => {
+  if(inputMode !== InputMode.CARDS) return;
+
+  const el = e.target;
+  if(el && el.closest && el.closest(".panelContent")) return;
+
+  e.preventDefault();
+
+  // If panel open: do NOT navigate cards; allow only close via buttons/tap/drag
+  if(activePanel !== null) return;
+  if(isAnimating) return;
+
+  const now = Date.now();
+  if(now - lastWheelTime < 420){
+    wheelAcc += e.deltaY;
+    return;
+  }
+
+  const ax = Math.abs(e.deltaX);
+  const ay = Math.abs(e.deltaY);
+
+  // Horizontal wheel opens panels (optional but nice on trackpad)
+  if(ax > ay * 1.2 && ax > 30){
+    lastWheelTime = now;
+    if(e.deltaX > 0) openPanel("right");
+    else openPanel("left");
+    return;
+  }
+
+  wheelAcc += e.deltaY;
+
+  if(Math.abs(wheelAcc) >= 70){
+    const dir = wheelAcc > 0 ? "next" : "prev";
+    wheelAcc = 0;
+    lastWheelTime = now;
+    moveCard(dir);
+  }
+}, { passive: false });
+
+// GESTURE LAYER: touch-only, NO capture på knappar – setPointerCapture endast efter intent
+const SWIPE_THRESHOLD = 72;
+const SWIPE_VELOCITY_MIN = 0.35;
+const INTENT_THRESHOLD = 12;
+const INTERACTIVE_SELECTOR = 'button, a, [role="button"], input, textarea, select, .panelHeader, .panelClose, #backBtn';
+
+const gestureLayer = document.getElementById("gestureLayer");
+if(gestureLayer){
+  let startX = 0, startY = 0, startT = 0, isGesture = false, didCapture = false, activePointerId = null;
+
+  gestureLayer.addEventListener("pointerdown", (e) => {
+    if(e.pointerType !== "touch") return;
+    if(mode !== "course") return;
+    const hit = document.elementFromPoint(e.clientX, e.clientY);
+    if(hit && hit.closest && hit.closest(INTERACTIVE_SELECTOR)) return;
+    if(e.target.closest && e.target.closest(INTERACTIVE_SELECTOR)) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    startT = Date.now();
+    isGesture = false;
+    didCapture = false;
+    activePointerId = e.pointerId;
+  }, { passive: true });
+
+  gestureLayer.addEventListener("pointermove", (e) => {
+    if(e.pointerType !== "touch") return;
+    if(mode !== "course") return;
+    if(activePointerId !== e.pointerId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if(!isGesture && (Math.abs(dx) > INTENT_THRESHOLD || Math.abs(dy) > INTENT_THRESHOLD)){
+      isGesture = true;
+      if(!didCapture){ try{ gestureLayer.setPointerCapture(e.pointerId); didCapture = true; }catch(_){} }
+    }
+    if(isGesture) e.preventDefault();
+  }, { passive: false });
+
+  function release(pointerId){
+    const id = pointerId != null ? pointerId : activePointerId;
+    if(didCapture && id != null){ try{ gestureLayer.releasePointerCapture(id); }catch(_){} }
+    didCapture = false;
+    activePointerId = null;
+  }
+
+  gestureLayer.addEventListener("pointerup", (e) => {
+    if(e.pointerType !== "touch") return;
+    if(mode !== "course") return;
+    try { release(e.pointerId); } finally {}
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const dt = Date.now() - startT;
+    const vx = dt > 0 ? dx / dt : 0;
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+
+    if(!isGesture || (ax < SWIPE_THRESHOLD && ay < SWIPE_THRESHOLD)) return;
+
+    if(activePanel !== null){
+      if(activePanel === "left" && dx < -SWIPE_THRESHOLD) closePanel();
+      if(activePanel === "right" && dx > SWIPE_THRESHOLD) closePanel();
+      return;
+    }
+
+    if(startY < 100 && dy > 60){
+      onBackFromCourse();
+      return;
+    }
+
+    if(!canNavigate()) return;
+    if(Date.now() < panelCooldownUntil && Math.abs(dx) > Math.abs(dy) * 1.1) return;
+
+    if(ax > ay * 1.1){
+      if(Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(vx) > SWIPE_VELOCITY_MIN){
+        if(dx < 0) openPanel("right");
+        else openPanel("left");
+      }
+    } else {
+      if(dy < 0) moveCard("next");
+      else moveCard("prev");
+    }
+  }, { passive: true });
+
+  gestureLayer.addEventListener("pointercancel", (e) => {
+    try { release(e.pointerId); } finally {}
+  }, { passive: true });
+}
+
+// KEYBOARD (desktop fallback)
+window.addEventListener("keydown", (e) => {
+  if(e.key === "Escape" || (e.key === "Backspace" && mode === "course")){
+    if(activePanel !== null) closePanel();
+    else if(mode === "course") onBackFromCourse();
+    return;
+  }
+  if(!canNavigate()) return;
+
+  if(e.key === "ArrowDown") moveCard("next");
+  if(e.key === "ArrowUp") moveCard("prev");
+  if(e.key === "ArrowLeft") openPanel("left");
+  if(e.key === "ArrowRight") openPanel("right");
+});
+
+// =============================
+// INIT
+// =============================
+document.body.style.overflow = "hidden";
+renderPicker();
+if(!applyStateFromHash()) showPickerView();
+
+window.addEventListener("hashchange", () => {
+  if(mode === "picker" && location.hash) applyStateFromHash();
+});
+
+</script>
+</body>
+</html>
